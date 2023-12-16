@@ -9,5 +9,6 @@ channel_layer = get_channel_layer()
 @receiver(post_save,sender=StakeHolder)
 def email_confirmed_receiver(sender,instance,created,**kwargs):
     if not created and instance.email_verified:        
-        channel_name = instance.secret        
-        async_to_sync(channel_layer.group_send)(channel_name, {"type": "program.event"})
+        channel_name = instance.secret
+        if channel_name:    
+            async_to_sync(channel_layer.group_send)(channel_name, {"type": "program.event"})

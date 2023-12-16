@@ -20,6 +20,7 @@ class StakeHolder(AbstractUser):
     email_verified = models.BooleanField(default=False)
     origin = models.CharField(max_length=10,default='native')
     avatar = models.TextField(default='')
+    sdp = models.TextField(null=True,blank=True)
 
     USERNAME_FIELD='email'
     REQUIRED_FIELDS = []

@@ -71,29 +71,28 @@ def get_qr_svg(secret):
 
 def xor_decipher(ciphertext, key):
     key_bytes = key.encode('utf-8')
-    ciphertext_bytes = base64.b64decode(ciphertext)
-    
+    ciphertext_bytes = base64.b64decode(ciphertext)    
     decrypted_bytes = [c ^ key_bytes[i % len(key_bytes)] for i, c in enumerate(ciphertext_bytes)]
-    decrypted_data = bytes(decrypted_bytes).decode('utf-8')
-    
+    decrypted_data = bytes(decrypted_bytes).decode('utf-8')        
     return decrypted_data
 
 def decryption_decorator(func):
-    def wrapper(*args,**kwargs):        
-        key = args[0].data['secret']
-        data = args[0].data['data']  
-        data_decrypted  = xor_decipher(data,key)          
-        args[0].data['data']  = json.loads(data_decrypted)
+    def wrapper(*args,**kwargs):
+        key = args[0].data.get('secret')        
+        data = args[0].data['data']        
+        if key:
+            data_decrypted  = xor_decipher(data,key)                    
+            args[0].data['data']  = json.loads(data_decrypted)
         result = func(*args, **kwargs)
         return result
     return wrapper
 
-# @ratelimit(key='ip', rate='5/m', block=True)
+@ratelimit(key='ip', rate='10/m', block=True)
 @api_view(['POST'])
 @decryption_decorator
 def SignupUser(request):
-    response = {'error':0, 'message':'', 'data':{}}
-    creds = request.data.get('data')
+    response = {'error':False, 'message':'', 'data':{}}
+    creds = request.data.get('data')    
     try:
         if 'email' in creds and 'password' in creds and 'username' in creds:
             email = creds['email']
@@ -110,24 +109,25 @@ def SignupUser(request):
                 user.origin = 'native'
                 user.save()
             # Generate QR code from it                         
-            if not user.is_active:                  
+            if not user.is_active or not user.email_verified:
                 response['data']['secret'] = user.secret
                 response['data']['verified'] = 0
                 Thread(target=send_email,args=(email,user.secret)).start()
-                response['message'] = 'Please verify you email'
+                response['message'] = 'Please verifiy your email!!'
             else:
-                raise Exception("You've already signed up")                
+                raise Exception("You've already signed up")
         else:
             raise Exception('Credentials missing')
     except Exception as e:
-        response['error']+=1
+        response['error'] = True
         response['message']=str(e)
-    return Response(response)
+        return Response(response,status=500)
+    return Response(response,status=200)
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @api_view(['POST'])
 def SignupUserGoogle(request):
-    response = {'error':0, 'message':'', 'data':{}}
+    response = {'error':False, 'message':'', 'data':{}}
     creds = request.data    
     try:
         if 'credential' in creds:
@@ -161,15 +161,17 @@ def SignupUserGoogle(request):
         else:
             raise Exception('Credentials missing')
     except Exception as e:
-        response['error']+=1
+        response['error']=True
         response['message']=str(e)
     return Response(response)
 
 @ratelimit(key='ip', rate='10/m', block=True)
 @api_view(['POST'])
+@decryption_decorator
 def LoginUser(request):
-    response = {'error':0, 'message':'', 'data':{}}
-    creds = request.data
+    response = {'error':False, 'message':'', 'data':{}}
+    creds = request.data.get('data')
+    print(creds)
     try:
         if 'email' in creds and 'password' in creds:
             email = creds['email']
@@ -186,20 +188,22 @@ def LoginUser(request):
                     response['data']['email_verified'] = False
                     Thread(target=send_email,args=(email,user.secret)).start()
                     response['data']['secret'] = secret
+                    raise Exception('Please verifiy your email!!')
             else:
                 raise Exception('User does not exist')
         else:
             raise Exception('Credentials missing')
     except Exception as e:
-        response['error'] +=1
+        response['error'] = True
         response['message'] = str(e)
-    return Response(response)
+        return Response(response,status=500)
+    return Response(response,status=200)
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @api_view(['POST'])
 def LoginWithAuthenticator(request):
-    response = {'error':0, 'message':'', 'data':{}}
+    response = {'error':False, 'message':'', 'data':{}}
     creds = request.data
     try:
         if 'email' in creds and 'password' in creds:
@@ -216,14 +220,14 @@ def LoginWithAuthenticator(request):
         else:
             raise Exception('Credentials missing')
     except Exception as e:
-        response['error'] +=1
+        response['error'] = True
         response['message'] = str(e)
     return Response(response)
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @api_view(['POST'])
 def LoginWithAuthenticatorGoogle(request):
-    response = {'error':0, 'message':'', 'data':{}}
+    response = {'error':False, 'message':'', 'data':{}}
     creds = request.data
     try:
         if 'ID Token' in creds:
@@ -244,7 +248,7 @@ def LoginWithAuthenticatorGoogle(request):
         else:
             raise Exception('Credentials missing')
     except Exception as e:
-        response['error'] +=1
+        response['error'] = True
         response['message'] = str(e)
     return Response(response)
 

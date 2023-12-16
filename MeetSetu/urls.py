@@ -28,6 +28,7 @@ urlpatterns = [
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('stakeholder/',include('StakeHolders.urls')),    
+    path('meet/',include('Meetings.urls')),
     path('base/',TemplateView.as_view(template_name='base.html'),name='base'),
     path('signup/',TemplateView.as_view(template_name='signup.html'),name='signup'),
     path('login/',TemplateView.as_view(template_name='login.html'),name='login'),    

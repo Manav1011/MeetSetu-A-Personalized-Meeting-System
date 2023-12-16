@@ -26,7 +26,8 @@ class AuthConsumer(AsyncWebsocketConsumer):
             await self.close()
     
     async def disconnect(self,close_code):        
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_discard(self.secret, self.channel_name)
+        await self.close()
 
     async def receive(self,text_data):
         text_data = json.loads(text_data)    
@@ -83,11 +84,14 @@ class AuthConsumer(AsyncWebsocketConsumer):
                         tokens = await self.get_tokens()
                         self.response['data'] = {'verified':True,'tokens':tokens}
                         await self.send(json.dumps(self.response))  
+                        await AuthConsumer.entities[self.secret]['authenticator'].send(json.dumps({
+                            'verified':True
+                        }))
                     await self.close()
                 elif verified == False:
                     self.response['error']+=1
                     self.response['message'] = 'OTP is wrong OR expired please try the latest one'
-                    await self.send(json.dumps(self.response))       
+                    await self.send(json.dumps(self.response))      
                 else:
                     self.response['error']+=1
                     self.response['message'] = 'Please scan the QR code first'
