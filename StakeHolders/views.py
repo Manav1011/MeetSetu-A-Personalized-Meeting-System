@@ -165,7 +165,7 @@ def SignupUserGoogle(request):
         response['message']=str(e)
     return Response(response)
 
-@ratelimit(key='ip', rate='10/m', block=True)
+# @ratelimit(key='ip', rate='10/m', block=True)
 @api_view(['POST'])
 @decryption_decorator
 def LoginUser(request):
@@ -184,6 +184,7 @@ def LoginUser(request):
                     response['data']['email_verified'] = True
                     response['data']['svg'] = svg_code
                     response['data']['secret'] = secret
+                    response['data']['email'] = user.email
                 else:                    
                     response['data']['email_verified'] = False
                     Thread(target=send_email,args=(email,user.secret)).start()

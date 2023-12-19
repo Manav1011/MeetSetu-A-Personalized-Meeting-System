@@ -4,3 +4,4 @@ from .models import Meeting
 # Register your models here.
 
 admin.site.register(Meeting)
+# admin.site.register(Chat)

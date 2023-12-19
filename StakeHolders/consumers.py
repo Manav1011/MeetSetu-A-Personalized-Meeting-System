@@ -10,8 +10,8 @@ from .views import CustomTokenObtainPairSerializer
 
 class AuthConsumer(AsyncWebsocketConsumer):    
     entities = {}
-    async def connect(self):
-        self.secret = self.scope["url_route"]["kwargs"]["secret_key"]           
+    async def connect(self):        
+        self.secret = self.scope["url_route"]["kwargs"]["secret_key"]
         await self.channel_layer.group_add(self.secret, self.channel_name)
         await self.accept()
         if self.secret not in AuthConsumer.entities:
@@ -31,13 +31,14 @@ class AuthConsumer(AsyncWebsocketConsumer):
 
     async def receive(self,text_data):
         text_data = json.loads(text_data)    
+        print(text_data)
         if text_data["client"] == "authenticator":                    
             org_val = await self.get_latest_cache()              
             if org_val['authenticator'] > 0: 
                 self.response['error']+=1
                 self.response['message'] = 'Request Limit Exceeded please try again after a minute'
                 await self.send(json.dumps(self.response))               
-                await self.close()
+                # await self.close()
             else:                
                 AuthConsumer.entities[self.secret]['authenticator'] = self            
                 print(self.entities)
@@ -54,7 +55,7 @@ class AuthConsumer(AsyncWebsocketConsumer):
                     self.response['error']+=1
                     self.response['message'] = 'Request Limit Exceeded please try again after a minute'
                     await self.send(json.dumps(self.response))               
-                    await self.close()
+                    # await self.close()
                 else:                
                     AuthConsumer.entities[self.secret]['app'] = self
                     print(self.entities)
@@ -139,6 +140,7 @@ class AuthConsumer(AsyncWebsocketConsumer):
                 await self.close()
                 break
             self.otp = str(np.random.randint(100000, 999999))
+            print(self.otp)
             org_val['otp'] = self.otp            
             cache.set(self.secret,org_val,60)
             self.otparr['otp'] = self.otp
