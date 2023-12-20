@@ -28,7 +28,6 @@ class AuthConsumer(AsyncWebsocketConsumer):
     async def disconnect(self,close_code):        
         await self.channel_layer.group_discard(self.secret, self.channel_name)
         await self.close()
-
     async def receive(self,text_data):
         text_data = json.loads(text_data)    
         print(text_data)
@@ -50,7 +49,7 @@ class AuthConsumer(AsyncWebsocketConsumer):
                 await self.send_otps()
         elif text_data["client"] == "app":
             if 'action' not in text_data:
-                org_val = await self.get_latest_cache() 
+                org_val = await self.get_latest_cache()
                 if org_val['app'] > 0: 
                     self.response['error']+=1
                     self.response['message'] = 'Request Limit Exceeded please try again after a minute'

@@ -9,8 +9,23 @@ from StakeHolders.models import StakeHolder
 from StakeHolders.serializers import UserListSerializer
 import base64
 from .serializers import MeetingSerializer
+from threading import Thread
+from django.conf import settings as django_settings
+from django.core.mail import send_mail
 
 # Create your views here.
+
+def send_email(receiver,key):    
+    sender_email = django_settings.EMAIL_HOST_USER
+    sent = False
+    url = f'http://localhost:3000/meet/{key}'
+    try:
+        send_mail('Join the meeting',url, from_email=sender_email,recipient_list=[receiver])
+        sent=True
+    except Exception as e:
+        print(e)        
+        sent = False
+    return sent
 
 def xor_decipher(ciphertext, key):
     key_bytes = key.encode('utf-8')
@@ -57,7 +72,8 @@ def create_meet(request):
                 # Get all the users to set the allowed participants field
                 users = StakeHolder.objects.all()
                 meet_obj.participants.add(user)
-                meet_obj.allowed_participants.add(*users)                
+                meet_obj.allowed_participants.add(*users)
+                meet_obj.allowed_participants.add(user)
                 response['data']['UID'] = meet_obj.UID
             if meet_type == 'private':
                 if  'user_list' in creds:
@@ -65,6 +81,8 @@ def create_meet(request):
                     meet_obj = Meeting.objects.create(type='private',host=user, status='active')
                     # Get all the users to set the allowed participants field
                     users = StakeHolder.objects.filter(id__in=user_list)
+                    for i in users:
+                        Thread(target=send_email,args=(i.email,meet_obj.UID)).start()
                     meet_obj.participants.add(user)
                     meet_obj.allowed_participants.add(*users)
                     response['data']['UID'] = meet_obj.UID

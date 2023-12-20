@@ -82,7 +82,7 @@ CORS_ALLOW_HEADERS = [
     'ngrok-skip-browser-warning',  # Add your custom header here
     'Content-Type',
     'Accept',
-    'Authorization',    
+    'Authorization',   
 ]
 CORS_ALLOW_CREDENTIALS=True
 

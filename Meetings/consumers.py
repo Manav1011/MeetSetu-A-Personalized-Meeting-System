@@ -47,7 +47,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 class SignalingConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.meet = f'{self.scope["url_route"]["kwargs"]["meet_uid"]}'
-        meet_obj = await self.get_meet_obj(self.meet)        
+        meet_obj = await self.get_meet_obj(self.meet)                
         if meet_obj:            
             self.group_name = f"signaling_{self.meet}"
             await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -66,8 +66,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         text_data = json.loads(text_data)
         if 'action' in text_data:
             if text_data['action'] == 'new_peer':
-                # Send notification to every other peer
-                print('newpeer',self.channel_name)
+                # Send notification to every other peer                
                 await self.channel_layer.group_send(
                     self.group_name, {"type": "new.peer", "message": text_data,"exclude":self.channel_name}
                 )
@@ -85,7 +84,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     self.group_name, {"type": "send.offer",'message':text_data,'sender_channel':self.channel_name}
                 )
 
-            if text_data['action'] == 'answer' and 'sdp_answer' in text_data:
+            if text_data['action'] == 'answer' and 'sdp_answer' in text_data and 'sender_channel' in text_data:                
                 await self.channel_layer.group_send(
                     self.group_name, {"type": "send.answer",'message':text_data,'channel':self.channel_name}
                 )  
@@ -111,25 +110,25 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         message = event['message']
         channel_name = message['channel_name']
         sender_channel = event['sender_channel']
-        message['sender_channel'] = sender_channel
-        print('channel_name',channel_name)
-        print('sender_channel',sender_channel)
+        message['sender_channel'] = sender_channel                
         if channel_name == self.channel_name:
             await self.send(text_data=json.dumps(message))        
     
     async def send_answer(self,event):
         message = event['message']
         channel_name = event['channel']
+        sender_channel = message['sender_channel']
         message['channel_name'] = channel_name
-        if channel_name != self.channel_name:
+        if sender_channel == self.channel_name:
             await self.send(text_data=json.dumps(message))        
 
     async def new_peer(self, event):        
-        message = event["message"]     
+        message = event["message"]    
         sender_channel_name = event["exclude"]
+        message['sender_channel'] = self.channel_name
         message['new_peer'] = sender_channel_name        
         if self.channel_name != sender_channel_name:
-            await self.send(text_data=json.dumps(message))        
+            await self.send(text_data=json.dumps(message))       
 
     @database_sync_to_async
     def get_meet_obj(self,meet_uid):

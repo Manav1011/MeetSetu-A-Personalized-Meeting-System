@@ -34,7 +34,7 @@ def generate_key(email,password):
 def send_email(receiver,secret):    
     sender_email = django_settings.EMAIL_HOST_USER
     sent = False
-    url = f'192.168.29.18:8000/stakeholder/confirm_email?secret={secret}'
+    url = f'http://172.16.17.87:8000/stakeholder/confirm_email?secret={secret}'
     try:
         send_mail('Email Confirmation Link',url, from_email=sender_email,recipient_list=[receiver])
         sent=True
@@ -87,19 +87,19 @@ def decryption_decorator(func):
         return result
     return wrapper
 
-@ratelimit(key='ip', rate='10/m', block=True)
+@ratelimit(key='ip', rate='5/m', block=True)
 @api_view(['POST'])
 @decryption_decorator
 def SignupUser(request):
     response = {'error':False, 'message':'', 'data':{}}
-    creds = request.data.get('data')    
+    creds = request.data.get('data')   
     try:
         if 'email' in creds and 'password' in creds and 'username' in creds:
             email = creds['email']
             password = creds['password']  
             username = creds['username']
             # Generate secret key from email and password
-            # Create or get the user
+            # Create or get the users
             user,created = StakeHolder.objects.get_or_create(email=email)
             if created:
                 user.set_password(password)
