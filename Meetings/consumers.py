@@ -3,6 +3,9 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from .models import Meeting
+from StakeHolders.models import StakeHolder
+from asgiref.sync import sync_to_async
+
 
 class ChatRoomConsumer(AsyncWebsocketConsumer):
     async def connect(self):        
@@ -47,14 +50,24 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 class SignalingConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.meet = f'{self.scope["url_route"]["kwargs"]["meet_uid"]}'
-        meet_obj = await self.get_meet_obj(self.meet)                
-        if meet_obj:            
+        email = f'{self.scope["url_route"]["kwargs"]["user"]}'        
+        self.user = await self.get_user(email)        
+        self.meet_obj = await self.get_meet_obj(self.meet)
+        if self.meet_obj: 
+            self.host = await sync_to_async(lambda: self.meet_obj.host)()            
+            if self.host == self.user:
+                SignalingConsumer.host_channel = self.channel_name
             self.group_name = f"signaling_{self.meet}"
             await self.channel_layer.group_add(self.group_name, self.channel_name)
             await self.accept()
-            await self.send(json.dumps({
-                'action':'joined'
-            }))            
+            if self.meet_obj.host == self.user or self.meet_obj.type != 'asktojoin':
+                await self.send(json.dumps({
+                        'action':'joined'
+                }))
+            else:
+                await self.send(json.dumps({
+                        'action':'wait_till_approved'
+                }))
         else:
             await self.close()
 
@@ -63,8 +76,19 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         return await super().disconnect(code)
 
     async def receive(self, text_data):
-        text_data = json.loads(text_data)
+        text_data = json.loads(text_data)        
         if 'action' in text_data:
+            if text_data['action'] == 'user_approved':
+                user = await self.get_user(user=text_data['user'])                
+                await SignalingConsumer.approvals.send(json.dumps({
+                    'action':'joined'
+                }))
+
+            if text_data['action'] == 'approve_me':
+                SignalingConsumer.approvals = self
+                await self.channel_layer.group_send(
+                    self.group_name, {"type": "approve.user", "message": text_data,"user":self.user.email}
+                )            
             if text_data['action'] == 'new_peer':
                 # Send notification to every other peer                
                 await self.channel_layer.group_send(
@@ -92,7 +116,14 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             if text_data['action'] == 'onicecandidate' and 'channel_name' in text_data and 'candidate' in text_data:
                 await self.channel_layer.group_send(
                     self.group_name, {"type": "send.candidate",'message':text_data,'sender_channel':self.channel_name}
-                )                
+                )    
+
+    async def approve_user(self,event):
+        message = event['message']
+        user = event['user']        
+        message['user'] = user
+        if self.channel_name == SignalingConsumer.host_channel:
+            await self.send(json.dumps(message))
     async def send_candidate(self,event):
         message = event['message']
         channel_name = message['channel_name']
@@ -133,3 +164,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_meet_obj(self,meet_uid):
         return Meeting.objects.filter(UID=meet_uid).first()
+
+    @database_sync_to_async
+    def get_user(self,user):
+        return StakeHolder.objects.filter(email=user).first()

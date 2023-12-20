@@ -75,6 +75,7 @@ def create_meet(request):
                 meet_obj.allowed_participants.add(*users)
                 meet_obj.allowed_participants.add(user)
                 response['data']['UID'] = meet_obj.UID
+                response['data']['ROLE'] = 'host'
             if meet_type == 'private':
                 if  'user_list' in creds:
                     user_list = creds.get('user_list')
@@ -85,14 +86,20 @@ def create_meet(request):
                         Thread(target=send_email,args=(i.email,meet_obj.UID)).start()
                     meet_obj.participants.add(user)
                     meet_obj.allowed_participants.add(*users)
+                    meet_obj.allowed_participants.add(user)
                     response['data']['UID'] = meet_obj.UID
+                    response['data']['ROLE'] = 'host'
                 else:
                     raise Exception('Credentials missing')
                 
             if meet_type == 'asktojoin':                
-                meet_obj = Meeting.objects.create(type='onetoone',host=user, status='active')                                
+                meet_obj = Meeting.objects.create(type='asktojoin',host=user, status='active')                                
                 meet_obj.participants.add(user)
+                users = StakeHolder.objects.all()
+                meet_obj.allowed_participants.add(*users)
+                meet_obj.allowed_participants.add(user)
                 response['data']['UID'] = meet_obj.UID
+                response['data']['ROLE'] = 'host'
                 
             if meet_type == 'onetoone':
                 if  'user_list' in creds:
@@ -102,7 +109,9 @@ def create_meet(request):
                     users = StakeHolder.objects.filter(id__in=user_list)
                     meet_obj.participants.add(user)
                     meet_obj.allowed_participants.add(*users)
+                    meet_obj.allowed_participants.add(user)
                     response['data']['UID'] = meet_obj.UID
+                    response['data']['ROLE'] = 'host'
                 else:
                     raise Exception('Credentials missing')
         else:
